@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Post;
+use App\Category;
+use App\Tag;
 
 class PostController extends Controller
 {
@@ -18,7 +20,7 @@ class PostController extends Controller
     {
         $categories = Category::all();
 
-        return view('admin.posts.create', compact('categories'));
+        return view('admin.posts.create', compact('categories', 'tags'));
     }
 
     /**
@@ -29,6 +31,7 @@ class PostController extends Controller
     public function create()
     {
         $categories = Category::all();
+        $tags = Tag::all();
 
         return view('admin.posts.create', compact('categories'));
     }
@@ -46,7 +49,8 @@ class PostController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string|max:65535',
             'published' => 'sometimes|accepted',
-            'category_id' => 'nullable|exists:categories,id'
+            'category_id' => 'nullable|exists:categories,id',
+            'tags' => 'nullable|exists:tags,id',
         ]);
         // prendo i dati dalla request e creo il post
         $data = $request->all();
@@ -57,6 +61,12 @@ class PostController extends Controller
 
         $newPost->published = isset($data['published']); // true o false
         $newPost->save();
+
+        //se ci sono tag li associo al post
+        if(isset($data['tags'])) {
+            $newPost->tags()->sync($data['tags']);
+        }
+
         // redirect alla pagina del post appena creato
         return redirect()->route('admin.posts.show', $newPost->id);
     }
@@ -81,8 +91,13 @@ class PostController extends Controller
     public function edit(Post $post)
     {
         $categories = Category::all();
+        $tags = Tag::all();
 
-        return view('admin.posts.edit', compact('post', 'categories'));
+        $postTags = $post->tags->map(function ($item) {
+            return $item->id;
+        })->toArray();
+
+        return view('admin.posts.edit', compact('post', 'categories', 'tags', 'postTags'));
     }
 
     /**
@@ -99,7 +114,8 @@ class PostController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string|max:65535',
             'published' => 'sometimes|accepted',
-            'category_id' => 'nullable|exists:categories,id'
+            'category_id' => 'nullable|exists:categories,id',
+            'tags' => 'nullable|exists:tags,id',
         ]);
         // aggiornamento
         $data = $request->all();
@@ -112,6 +128,11 @@ class PostController extends Controller
         $post->published = isset($data['published']); // true o false
 
         $post->save();
+
+        $tags = isset($data['tags']) ? $data['tags'] : [];
+
+        $post->tags()->sync($tags);
+
         // redirect
         return redirect()->route('admin.posts.show', $post->id);
     }
